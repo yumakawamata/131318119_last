@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>ビデオで認識</title>
+
+    <!-- 1. ここにP5.jsを読み込む -->
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="googleSheets.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/p5"></script>
+    <script src="https://unpkg.com/ml5@0.4.3/dist/ml5.min.js"></script>
+    
+    <link rel="stylesheet" href="sample.css">
+
+    <!-- 2.以下にsetup関数とdraw関数を定義 -->
+    <script>
+      
+      let video;
+      let poseNet;
+      let poses = [];
+      let skeletons = [];
+
+      function setup() {
+        createCanvas(640, 480);
+        video = createCapture(VIDEO);
+        // Create a new poseNet method with a single detection
+        poseNet = ml5.poseNet(video, modelReady);
+        // This sets up an event that fills the global variable "poses"
+        // with an array every time new poses are detected
+        poseNet.on("pose", function (results) {
+          poses = results;
+        });
+        // Hide the video element, and just show the canvas
+        video.hide();
+      }
+
+      function modelReady() {
+        select("#status").html("変身完了！");
+      }
+
+      function draw() {
+        image(video, 0, 0, width, height);
+        image(img3, 240, 260);
+        // We can call both functions to draw all keypoints and the skeletons
+        drawKeypoints();
+        //drawSkeleton();
+      }
+
+      function draw1() {
+        image(video, 0, 0, width, height);
+        image(img3, 240, 260);
+        // We can call both functions to draw all keypoints and the skeletons
+        drawKeypoints1();
+        //drawSkeleton();
+      }
+      
+
+      //画像読み込み
+      let img;
+      let img2;
+      let img3;
+      function preload() {
+        img = loadImage("pic/migi.png");
+        img2 = loadImage("pic/hidari.png");
+        img3 = loadImage("pic/otaku.png");
+
+      }
+
+      // A function to draw ellipses over the detected keypoints
+      function drawKeypoints() {
+        // Loop through all the poses detected
+        for (let i = 0; i < poses.length; i++) {
+          // For each pose detected, loop through all the keypoints
+          for (let j = 0; j < poses[i].pose.keypoints.length; j++) {
+            // A keypoint is an object describing a body part (like rightArm or leftShoulder)
+            let keypoint = poses[i].pose.keypoints[j];
+            // Only draw an ellipse is the pose probability is bigger than 0.2
+            if (j == 1 && keypoint.score > 0.2) {
+              //fill(255, 0, 0);
+              noStroke();
+              image(img, keypoint.position.x - 40, keypoint.position.y - 50);
+              //fill(10, 10, 10);
+            } else if (j == 2 && keypoint.score > 0.2) {
+              image(img2, keypoint.position.x - 50, keypoint.position.y - 50);
+            }
+          }
+        }
+      }
+
+      function drawKeypoints1(){
+          
+      }
+
+      $(function () {
+        /* global $ loadSheets */
+        const sheetId = "18ew-gq5_t0CWmjx3Ii1tMNGj2S8uhB_sm9bHlaAR20Y";
+        const range = "list!A1:E100";
+
+        $("#mybtn").on("click", showdata);
+        async function showdata() {
+          let data = await loadSheets(sheetId, range);
+          //console.log(data.values[0][0]);
+         
+          for(i=0;i<2;i++){
+            $("#contents").append(data.values[1][i]);
+            //$("#contents").append("<br>");
+          }
+        }
+              
+        $("#mybtn1").on("click", showdata);
+        async function showdata() {
+          let data = await loadSheets(sheetId, range);
+          //console.log(data.values[0][0]);
+             
+          for(i=0;i<2;i++){
+            $("#contents").append(data.values[2][i]);
+            //$("#contents").append("<br>");
+            
+          }
+
+          $("#mybtn2").on("click", showdata);
+        async function showdata() {
+          let data = await loadSheets(sheetId, range);
+          //console.log(data.values[0][0]);
+         
+          for(i=0;i<2;i++){
+            $("#contents").append(data.values[3][i]);
+            //$("#contents").append("<br>");
+          }
+        }
+            
+        }
+      });
+    
+      const resultDiv = document.querySelector("#result-div");
+      const micDiv = document.querySelector("#mic");
+      let speakingtime = 0;
+
+      // 音声認識機能(Chrome)
+      let rec = new webkitSpeechRecognition();
+      let stopped = true;
+      rec.continuous = true;
+      rec.interimResults = false;
+      rec.lang = "ja-JP";
+
+      micDiv.onclick = function () {
+        if (stopped == true) {
+          stopped = false;
+          resultDiv.innerHTML = "";
+          rec.start();
+        } else {
+          stopped = true;
+          rec.stop();
+        }
+      };
+
+      rec.onstart = function () {
+        console.log("on start");
+        micDiv.setAttribute("src", "micon.svg");
+        speakingtime = 0;
+      };
+
+      rec.onend = function () {
+        console.log("on end");
+        micDiv.setAttribute("src", "micoff.svg");
+        if (stopped == false) {
+          setTimeout(function () {
+            rec.start();
+          }, speakingtime);
+        }
+      };
+
+      rec.onresult = function (e) {
+        rec.stop();
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) {
+            console.log(e);
+            let text = e.results[i][0].transcript;
+            resultDiv.innerHTML = text;
+            text = dialogue(text);
+            console.log(text);
+            speakingtime = text.length * 200;
+            console.log("estimate:", speakingtime, "ms");
+            speak(text);
+          }
+        }
+      };
+
+      function dialogue(input) {
+        if (/ぴえん/.test(input)) {
+          return "からのパオン";
+        } else {
+          return "よくわかりません";
+        }
+      }
+
+      // 発話機能をインスタンス化
+      let msg = new SpeechSynthesisUtterance();
+
+      function speak(text) {
+        msg.volume = 1.0; // 音量 min 0 ~ max 1
+        msg.rate = 1.0; // 速度 min 0 ~ max 10
+        msg.pitch = 1.0; // 音程 min 0 ~ max 2
+
+        msg.text = text; // 喋る内容
+        msg.lang = "ja-JP"; // en-US or ja-JP
+        //msg.lang = "en-US"; // en-US or ja-JP
+
+        // 発話実行
+        speechSynthesis.speak(msg);
+      }
+
+      // 終了時の処理
+      msg.onend = function (event) {
+        console.log("喋った時間：" + event.elapsedTime + "ms");
+      };
+
+    </script>
+    <script
+      async
+      defer
+      src="https://apis.google.com/js/api.js"
+      onload="handleClientLoad()"
+      onreadystatechange="if (this.readyState === 'complete') this.onload()"
+    ></script>
+
+
+
+    </script>
+  </head>
+  <body>
+    <div id="status"></div>
+    <div id="result"></div>
+    <div id="probability"></div>
+    <p class="center-box"><img id="mic" src="micoff.svg" /></p>
+    <div id="result-div" class="large-text"></div>
+
+    <button id="mybtn"> 😢 </button>
+    <button id="mybtn1"> 🐈 </button>
+    <button id="mybtn2"> 💖 </button>
+    <p id="contents"></p>
+
+    
+
+    <p><span id="sample">💖誰でも可愛いうるうるの目になれます💖</span></p>
+  </body>
+</html>
